@@ -198,7 +198,7 @@ st.set_page_config(page_title="DokterHP Panic-Full Reader", page_icon="📱", la
 st.title("📱 DokterHP v1 by IDT")
 st.subheader("Panic-Full Log Analyzer (iPhone)")
 
-uploaded_file = st.file_uploader("Unggah file Panic-Full (.txt / .log)", type=["txt", "log"])
+uploaded_file = st.file_uploader("Unggah file Panic-Full (.txt / .ips / .log)", type=["txt", "ips", "log"])
 
 if uploaded_file:
     text = uploaded_file.read().decode("utf-8", errors="ignore")
@@ -221,3 +221,4 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("© 2025 DokterHP v1 by IDT | Interested in collaboration 👉 @maxxjen1 on Instagram")
+
