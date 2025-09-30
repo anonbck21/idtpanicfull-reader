@@ -1,8 +1,16 @@
+# =======================================
+# 📱 IDT Panic-Full Reader (iPhone)
+# v1.0 by JENSKYYY
+# =======================================
+
 import streamlit as st
 import re
+from datetime import datetime
+import pandas as pd
+
 
 # ===============================
-# 1. Database iPhone (Board Code + Identifier)
+# Database iPhone (Board Code + Identifier)
 # ===============================
 BOARD_MAP = {
     "N61AP": "iPhone 6", "N56AP": "iPhone 6 Plus",
@@ -61,92 +69,233 @@ IPHONE_MAP = {
     "iPhone16,5": "iPhone 16 Pro", "iPhone16,6": "iPhone 16 Pro Max",
 }
 
-# ===============================
-# 2. Database Kerusakan
-# ===============================
-SYMPTOM_DB = {
-    "charger": ["IC Charging", "Konektor Charger", "Flex Charger"],
-    "nand": ["NAND Flash rusak", "CPU komunikasi gagal"],
-    "baseband": ["IC Baseband rusak", "Jalur Baseband bermasalah"],
-    "sensor": ["IC Tristar/Hydra", "Sensor Flex rusak"],
-    "camera": ["Konektor kamera rusak", "IC Kamera"],
-    "wifi": ["IC Wifi", "Antena rusak"],
-    "touch": ["IC Touch", "Layar rusak"],
+# ======================
+# Database Panic-Full 📚
+# ======================
+PANIC_DB = {
+    "mic2": {
+        "kategori": "Audio / Mic",
+        "penyebab_umum": [
+            "Sering terjadi setelah kena air bagian bawah",
+            "Kerusakan dock flex",
+            "Solderan jalur mic retak karena benturan"
+        ],
+        "checklist": [
+            {"bagian": "Dock Flex / Mic Bawah", "letak": "Dock Flex (bawah)", "tindakan": "Coba ganti flex bawah"},
+            {"bagian": "Konektor J6300", "letak": "Board bawah", "tindakan": "Bersihkan, re-tin pin konektor"},
+            {"bagian": "Jalur SDA / SCL", "letak": "Board bawah → PMIC", "tindakan": "Ukur continuity jalur I²C"},
+            {"bagian": "Resistor Pull-up 1.8V", "letak": "Dekat J6300", "tindakan": "Ukur nilai resistor"}
+        ],
+        "keterangan": "Umumnya muncul di panic log dengan 'missing sensor: mic2'."
+    },
+
+    "battery_ntc": {
+        "kategori": "Power / Baterai",
+        "penyebab_umum": [
+            "Baterai KW atau rusak",
+            "Flex baterai putus atau korosi",
+            "Kena air → jalur NTC short"
+        ],
+        "checklist": [
+            {"bagian": "Baterai", "letak": "Baterai iPhone", "tindakan": "Coba ganti baterai original"},
+            {"bagian": "Flexible Baterai", "letak": "Konektor baterai", "tindakan": "Cek kondisi flex"},
+            {"bagian": "Jalur NTC", "letak": "Baterai → PMIC", "tindakan": "Continuity test jalur NTC"}
+        ],
+        "keterangan": "Biasanya panic log menyebut 'missing sensor: battery_ntc'."
+    },
+
+    "thermalmonitord": {
+        "kategori": "Thermal / Suhu",
+        "penyebab_umum": [
+            "Flex kamera ada short (kamera ada sensor suhu)",
+            "Sensor baterai tidak terbaca",
+            "IC PMIC bermasalah"
+        ],
+        "checklist": [
+            {"bagian": "Sensor Suhu Baterai", "letak": "Baterai", "tindakan": "Cek apakah NTC terbaca"},
+            {"bagian": "PMIC", "letak": "Board", "tindakan": "Periksa apakah panas/short"},
+            {"bagian": "Camera Flex", "letak": "Flex kamera depan/belakang", "tindakan": "Coba ganti flex kamera"}
+        ],
+        "keterangan": "Ditandai panic log ada kata 'thermalmonitord'."
+    },
+
+    "baseband": {
+        "kategori": "Sinyal / Baseband",
+        "penyebab_umum": [
+            "HP terbanting → solderan retak di IC Baseband",
+            "Air merusak jalur clock baseband",
+            "Update iOS gagal menulis data ke modem firmware"
+        ],
+        "checklist": [
+            {"bagian": "IC Baseband", "letak": "Dekat CPU (iPhone 6s–X)", "tindakan": "Reball/replace IC baseband"},
+            {"bagian": "Jalur Clock & Power", "letak": "CPU ↔ Baseband", "tindakan": "Continuity test jalur"},
+            {"bagian": "EEPROM Modem", "letak": "Dekat Baseband", "tindakan": "Reprogram / ganti"}
+        ],
+        "keterangan": "Biasanya muncul panic string: 'No service / modem panic'."
+    },
+
+    "userspace_watchdog": {
+        "kategori": "System / Boot",
+        "penyebab_umum": [
+            "iOS corrupt karena update gagal",
+            "Aplikasi crash terus → watchdog reset",
+            "Kerusakan NAND storage"
+        ],
+        "checklist": [
+            {"bagian": "iOS System", "letak": "Software", "tindakan": "Restore ulang via iTunes"},
+            {"bagian": "NAND", "letak": "Board", "tindakan": "Reball/ganti NAND jika error terus"},
+            {"bagian": "Cek Aplikasi", "letak": "System", "tindakan": "Pastikan tidak ada app corrupt"}
+        ],
+        "keterangan": "Ditandai panic log ada 'userspace watchdog timeout'."
+    },
+
+    "tristar_tigris": {
+        "kategori": "Power / Charging",
+        "penyebab_umum": [
+            "Menggunakan charger non-original",
+            "IC Tristar/Tigris rusak akibat tegangan tidak stabil",
+            "HP sering mati hidup saat di-charge"
+        ],
+        "checklist": [
+            {"bagian": "IC Tristar", "letak": "Dekat konektor lightning", "tindakan": "Ganti IC Tristar"},
+            {"bagian": "IC Tigris", "letak": "Board bawah", "tindakan": "Cek tegangan, ganti jika rusak"},
+            {"bagian": "Konektor Lightning", "letak": "Board bawah", "tindakan": "Coba ganti dock flex"}
+        ],
+        "keterangan": "Biasanya panic log terkait charging / USB detect error."
+    },
+
+    "audio_ic": {
+        "kategori": "Audio / Speaker",
+        "penyebab_umum": [
+            "Umumnya di iPhone 7/7 Plus",
+            "Sering terbanting → jalur C12/C14 retak",
+            "Audio IC rusak (U3101)"
+        ],
+        "checklist": [
+            {"bagian": "IC Audio", "letak": "Dekat CPU", "tindakan": "Reball/ganti IC"},
+            {"bagian": "Jalur Data Audio", "letak": "CPU ↔ Audio IC", "tindakan": "Ukur continuity"},
+            {"bagian": "Mic Flex", "letak": "Dock Flex", "tindakan": "Tes mic flex"}
+        ],
+        "keterangan": "Gejala: panic + tidak ada suara saat rekam, voice memo tidak jalan."
+    },
+
+    "default": {
+        "kategori": "Umum",
+        "penyebab_umum": [
+            "HP kena air",
+            "Pernah jatuh / terbanting",
+            "Baterai atau flex KW",
+            "IC overheat"
+        ],
+        "checklist": [
+            {"bagian": "Baterai", "letak": "Board bawah", "tindakan": "Coba ganti baterai original"},
+            {"bagian": "Dock Flex", "letak": "Board bawah", "tindakan": "Tes ganti dock flex"},
+            {"bagian": "Camera Flex", "letak": "Board atas", "tindakan": "Tes ganti kamera flex"},
+            {"bagian": "PMIC", "letak": "Dekat CPU", "tindakan": "Ukur tegangan, cek short"}
+        ],
+        "keterangan": "Digunakan jika panic log tidak cocok dengan pola spesifik."
+    }
 }
 
-# ===============================
-# 3. Database Penyebab Umum Panic Full
-# ===============================
-CAUSE_DB = [
-    "Terkena air atau lembab",
-    "Ponsel terbanting / jatuh",
-    "Overheat (panas berlebih)",
-    "Korslet akibat pengisian daya",
-    "Update iOS gagal atau corrupt",
-    "Kerusakan hardware (IC, konektor, jalur)",
-]
+# ======================
+# Regex Extractor 🔍
+# ======================
+RE_PATTERNS = {
+    "device": re.compile(r'product:\s*([^\s,;]+)', re.I),
+    "ios_version": re.compile(r'iOS Version:\s*([^\n\r]+)|OS Version:\s*([^\n\r]+)', re.I),
+    "panic_string": re.compile(r'panicString:\s*(.+)', re.I),
+    "missing_sensors": re.compile(r'Missing sensor\(s\):\s*([^\n\r]+)', re.I),
+    "userspace_watchdog": re.compile(r'userspace watchdog timeout:\s*(.+)', re.I),
+}
 
-# ===============================
-# 4. Fungsi Parsing Panic Full
-# ===============================
-def parse_panic_log(text):
+def extract_all(text):
     out = {}
-    model = None
+    for k, pat in RE_PATTERNS.items():
+        m = pat.search(text)
+        if m:
+            groups = [g for g in m.groups() if g]
+            out[k] = groups[0].strip() if groups else m.group(0).strip()
 
     # Cari identifier iPhoneX,Y
     match_id = re.search(r"(iPhone\d+,\d+)", text)
     if match_id:
         code = match_id.group(1)
-        model = IPHONE_MAP.get(code, f"Unknown ({code})")
+        out["iphone_model"] = IPHONE_MAP.get(code, f"Unknown ({code})")
 
-    # Cari board code
-    match_board = re.search(r"(D\d+\w*AP|N\d+\w*AP)", text)
-    if match_board and not model:
-        code = match_board.group(1)
-        model = BOARD_MAP.get(code, f"Unknown ({code})")
+    # Kalau belum ketemu, cek board code (DxxAP / NxxAP)
+    if "iphone_model" not in out:
+        match_board = re.search(r"(D\d+\w*AP|N\d+\w*AP)", text)
+        if match_board:
+            code = match_board.group(1)
+            out["iphone_model"] = BOARD_MAP.get(code, f"Unknown ({code})")
 
-    out["model"] = model if model else "Unknown"
-    out["symptoms"] = []
-    out["possible_causes"] = []
+    # Ambil sensor-sensor hilang
+    ms = re.findall(r'Missing sensor\(s\):\s*([^\n\r]+)', text, re.I)
+    if ms:
+        sensors = []
+        for s in ms:
+            sensors += re.split(r'[,\s]+', s.strip())
+        out['missing_sensors_all'] = list(dict.fromkeys([x for x in sensors if x]))
 
-    for key, issues in SYMPTOM_DB.items():
-        if re.search(key, text, re.IGNORECASE):
-            out["symptoms"].append(key)
-            out["possible_causes"].extend(issues)
-
+    out['contains_thermalmonitord'] = bool(re.search(r'thermalmonitord', text, re.I))
     return out
 
-# ===============================
-# 5. Streamlit App
-# ===============================
-st.title("📱 iPhone Panic Full Reader - IDT DokterHP")
 
-uploaded = st.file_uploader("Upload Panic Full Log  (.txt / .ips / .log)", type=["txt", "ips", "log"])
-if uploaded:
-    text = uploaded.read().decode("utf-8", errors="ignore")
-    result = parse_panic_log(text)
+def generate_checklist(ctx):
+    sensors = [s.lower() for s in ctx.get('missing_sensors_all', [])]
+    checks, notes = [], []
 
-    st.subheader("📌 Hasil Analisis")
-    st.write(f"**Model iPhone**: {result['model']}")
+    if "mic2" in sensors:
+        data = PANIC_DB["mic2"]
+        checks, notes = data["checklist"], data["penyebab_umum"]
 
-    if result["symptoms"]:
-        st.write("**Gejala yang terdeteksi:**")
-        for s in result["symptoms"]:
-            st.markdown(f"- {s}")
+    elif any("batt" in s or "ntc" in s for s in sensors):
+        data = PANIC_DB["battery_ntc"]
+        checks, notes = data["checklist"], data["penyebab_umum"]
 
-        st.write("**Kemungkinan kerusakan:**")
-        for c in result["possible_causes"]:
-            st.markdown(f"- {c}")
+    elif ctx.get("contains_thermalmonitord"):
+        data = PANIC_DB["thermalmonitord"]
+        checks, notes = data["checklist"], data["penyebab_umum"]
+
+    elif "userspace_watchdog" in ctx:
+        data = PANIC_DB["userspace_watchdog"]
+        checks, notes = data["checklist"], data["penyebab_umum"]
+
     else:
-        st.info("Tidak ada gejala spesifik ditemukan dalam log.")
+        data = PANIC_DB["default"]
+        checks, notes = data["checklist"], data["penyebab_umum"]
 
-    st.write("**Penyebab umum Panic Full:**")
-    for c in CAUSE_DB:
-        st.markdown(f"- {c}")
+    return data["kategori"], checks, notes, data["keterangan"]
 
-# ===============================
-# 6. Footer
-# ===============================
+# ======================
+# Streamlit UI 🎨
+# ======================
+st.set_page_config(page_title="IDT Panic-Full Reader", page_icon="📱", layout="wide")
+
+st.title("📱 IDT Panic Full Reader v1 by IDT")
+st.subheader("Panic-Full Log Analyzer (iPhone)")
+
+uploaded_file = st.file_uploader("Unggah file Panic-Full (.txt / .ips / .log)", type=["txt", "ips", "log"])
+
+if uploaded_file:
+    text = uploaded_file.read().decode("utf-8", errors="ignore")
+    ctx = extract_all(text)
+    kategori, checklist, notes, keterangan = generate_checklist(ctx)
+
+    st.markdown(f"### 📌 Hasil Analisa")
+    st.write(f"**Device:** {ctx.get('device', 'Tidak diketahui')}")
+    st.write(f"**iOS:** {ctx.get('ios_version', 'Tidak diketahui')}")
+    st.write(f"**Kategori:** {kategori}")
+    st.write(f"**Catatan:** {keterangan}")
+
+    st.markdown("#### ⚡ Penyebab Umum")
+    for n in notes:
+        st.write(f"- {n}")
+
+    st.markdown("#### 🛠 Checklist Perbaikan")
+    df = pd.DataFrame(checklist)
+    st.dataframe(df, use_container_width=True)
+
 st.markdown("---")
-st.markdown("© 2025 | Interested in collaboration: [@maxxjen1](https://instagram.com/maxxjen1) on Instagram")
+st.caption("© 2025 Semua di develop sendiri tidak dengan team. Tools bebas untuk digunakkan dan Gratis | Interested in collaboration 👉 @maxxjen1 on Instagram")
 
