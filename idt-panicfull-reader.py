@@ -256,18 +256,7 @@ else:
     out["iphone_model"] = f"Unknown ({prod_code})" if prod_code else "Unknown"
 
     # --- Cari product: iPhoneXX,YY ---
-    prod = re.search(r"(iPhone\d+,\d+)", text)
-    if prod:
-        code = prod.group(1)
-        out["iphone_model"] = IPHONE_MAP.get(code, f"Unknown ({code})")
-    else:
-        # --- Kalau product pakai kode board (D331pAP dll) ---
-        prod2 = out.get("device", "")
-        if prod2 in IPHONE_MAP:
-            out["iphone_model"] = IPHONE_MAP[prod2]
-        else:
-            out["iphone_model"] = prod2 if prod2 else "Unknown"
-
+    
     # --- Missing sensors ---
     ms = re.findall(r'Missing sensor\(s\):\s*([^\n\r]+)', text, re.I)
     if ms:
@@ -277,6 +266,16 @@ else:
         out['missing_sensors_all'] = list(dict.fromkeys([x for x in sensors if x]))
 
     out['contains_thermalmonitord'] = bool(re.search(r'thermalmonitord', text, re.I))
+    
+    prod_code = out.get("device", "")
+if prod_code in BOARD_MAP:
+    out["iphone_model"] = BOARD_MAP[prod_code]
+elif re.search(r"iPhone\d+,\d+", text):
+    code = re.search(r"(iPhone\d+,\d+)", text).group(1)
+    out["iphone_model"] = IPHONE_MAP.get(code, f"Unknown ({code})")
+else:
+    out["iphone_model"] = f"Unknown ({prod_code})" if prod_code else "Unknown"
+
     return out
 
 # Regex Extractor 🔍
@@ -348,6 +347,7 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("© 2025 Semua di develop sendiri tidak dengan team. Tools bebas untuk digunakkan dan Gratis | Interested in collaboration 👉 @maxxjen1 on Instagram")
+
 
 
 
