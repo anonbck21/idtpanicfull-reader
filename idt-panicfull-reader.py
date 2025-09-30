@@ -218,8 +218,22 @@ if uploaded_file:
     st.markdown("#### 🛠 Checklist Perbaikan")
     df = pd.DataFrame(checklist)
     st.dataframe(df, use_container_width=True)
+    
+  # Export Buttons
+    st.markdown("### 📤 Export Report")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        txt_file = export_report(device, ios, kategori, notes, checklist, keterangan, "txt")
+        st.download_button("⬇️ Download TXT", txt_file, file_name="panic_report.txt")
+
+    with col2:
+        pdf_file = export_report(device, ios, kategori, notes, checklist, keterangan, "pdf")
+        st.download_button("⬇️ Download PDF", pdf_file, file_name="panic_report.pdf")
+
 
 st.markdown("---")
 st.caption("© 2025 Semua di develop sendiri tidak dengan team. Tools bebas untuk digunakkan dan Gratis | Interested in collaboration 👉 @maxxjen1 on Instagram")
+
 
 
