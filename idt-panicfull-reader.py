@@ -1,17 +1,12 @@
 # =======================================
 # 📱 DokterHP Panic-Full Reader (iPhone)
-# v1.1 by IDT
+# v1.0 by IDT
 # =======================================
 
 import streamlit as st
 import re
 from datetime import datetime
 import pandas as pd
-from io import BytesIO
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
 
 # ======================
 # Database Panic-Full 📚
@@ -175,101 +170,44 @@ def generate_checklist(ctx):
 
     if "mic2" in sensors:
         data = PANIC_DB["mic2"]
+        checks, notes = data["checklist"], data["penyebab_umum"]
+
     elif any("batt" in s or "ntc" in s for s in sensors):
         data = PANIC_DB["battery_ntc"]
+        checks, notes = data["checklist"], data["penyebab_umum"]
+
     elif ctx.get("contains_thermalmonitord"):
         data = PANIC_DB["thermalmonitord"]
+        checks, notes = data["checklist"], data["penyebab_umum"]
+
     elif "userspace_watchdog" in ctx:
         data = PANIC_DB["userspace_watchdog"]
+        checks, notes = data["checklist"], data["penyebab_umum"]
+
     else:
         data = PANIC_DB["default"]
+        checks, notes = data["checklist"], data["penyebab_umum"]
 
-    return data["kategori"], data["checklist"], data["penyebab_umum"], data["keterangan"]
-
-# ======================
-# Report Generator 📄
-# ======================
-def export_report(device, ios, kategori, notes, checklist, keterangan, format="txt"):
-    if format == "txt":
-        content = f"""📱 DokterHP Panic-Full Report
-=============================
-Device   : {device}
-iOS      : {ios}
-Kategori : {kategori}
-
-📌 Catatan
-{keterangan}
-
-⚡ Penyebab Umum
-- """ + "\n- ".join(notes) + """
-
-🛠 Checklist
-"""
-        for row in checklist:
-            content += f"- {row['bagian']} ({row['letak']}) → {row['tindakan']}\n"
-        return BytesIO(content.encode("utf-8"))
-
-    elif format == "pdf":
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
-        styles = getSampleStyleSheet()
-        elements = []
-
-        elements.append(Paragraph("📱 DokterHP Panic-Full Report", styles["Title"]))
-        elements.append(Spacer(1, 12))
-
-        elements.append(Paragraph(f"<b>Device:</b> {device}", styles["Normal"]))
-        elements.append(Paragraph(f"<b>iOS:</b> {ios}", styles["Normal"]))
-        elements.append(Paragraph(f"<b>Kategori:</b> {kategori}", styles["Normal"]))
-        elements.append(Spacer(1, 12))
-
-        elements.append(Paragraph("<b>📌 Catatan</b>", styles["Heading3"]))
-        elements.append(Paragraph(keterangan, styles["Normal"]))
-        elements.append(Spacer(1, 12))
-
-        elements.append(Paragraph("<b>⚡ Penyebab Umum</b>", styles["Heading3"]))
-        for n in notes:
-            elements.append(Paragraph(f"- {n}", styles["Normal"]))
-        elements.append(Spacer(1, 12))
-
-        elements.append(Paragraph("<b>🛠 Checklist</b>", styles["Heading3"]))
-        table_data = [["Bagian", "Letak", "Tindakan"]]
-        for row in checklist:
-            table_data.append([row["bagian"], row["letak"], row["tindakan"]])
-        table = Table(table_data, colWidths=[120, 120, 200])
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-        ]))
-        elements.append(table)
-
-        doc.build(elements)
-        buffer.seek(0)
-        return buffer
+    return data["kategori"], checks, notes, data["keterangan"]
 
 # ======================
 # Streamlit UI 🎨
 # ======================
 st.set_page_config(page_title="DokterHP Panic-Full Reader", page_icon="📱", layout="wide")
 
-st.title("📱 DokterHP v1.1 by IDT")
-st.subheader("Panic-Full Log Analyzer (iPhone) + Export Report")
+st.title("📱 DokterHP v1 by IDT")
+st.subheader("Panic-Full Log Analyzer (iPhone)")
 
-uploaded_file = st.file_uploader("Unggah file Panic-Full (.txt / .log)", type=["txt", "log"])
+uploaded_file = st.file_uploader("Unggah file Panic-Full (.txt / .ips / .log)", type=["txt", "ips", "log"])
 
 if uploaded_file:
     text = uploaded_file.read().decode("utf-8", errors="ignore")
     ctx = extract_all(text)
     kategori, checklist, notes, keterangan = generate_checklist(ctx)
 
-    device = ctx.get("device", "Tidak diketahui")
-    ios = ctx.get("ios_version", "Tidak diketahui")
-
     st.markdown(f"### 📌 Hasil Analisa")
-    st.write(f"**Device:** {device}")
-    st.write(f"**iOS:** {ios}")
+    st.write(f"**Device:** {ctx.get('device', 'Tidak diketahui')}")
+    st.write(f"**iOS:** {ctx.get('ios_version', 'Tidak diketahui')}")
     st.write(f"**Kategori:** {kategori}")
     st.write(f"**Catatan:** {keterangan}")
 
@@ -281,17 +219,5 @@ if uploaded_file:
     df = pd.DataFrame(checklist)
     st.dataframe(df, use_container_width=True)
 
-    # Export Buttons
-    st.markdown("### 📤 Export Report")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        txt_file = export_report(device, ios, kategori, notes, checklist, keterangan, "txt")
-        st.download_button("⬇️ Download TXT", txt_file, file_name="panic_report.txt")
-
-    with col2:
-        pdf_file = export_report(device, ios, kategori, notes, checklist, keterangan, "pdf")
-        st.download_button("⬇️ Download PDF", pdf_file, file_name="panic_report.pdf")
-
 st.markdown("---")
-st.caption("© 2025 DokterHP v1.1 by IDT | Collaboration 👉 @maxxjen1 on Instagram")
+st.caption("© 2025 DokterHP v1 by IDT | Interested in collaboration 👉 @maxxjen1 on Instagram")
