@@ -121,7 +121,7 @@ def parse_panic_log(text):
 # ===============================
 st.title("📱 iPhone Panic Full Reader - IDT DokterHP")
 
-uploaded = st.file_uploader("Upload Panic Full Log (.txt)", type=["txt"])
+uploaded = st.file_uploader("Upload Panic Full Log  (.txt / .ips / .log)", type=["txt", "ips", "log"])
 if uploaded:
     text = uploaded.read().decode("utf-8", errors="ignore")
     result = parse_panic_log(text)
@@ -149,3 +149,4 @@ if uploaded:
 # ===============================
 st.markdown("---")
 st.markdown("© 2025 | Interested in collaboration: [@maxxjen1](https://instagram.com/maxxjen1) on Instagram")
+
