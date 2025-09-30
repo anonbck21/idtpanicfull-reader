@@ -1,6 +1,6 @@
 # =======================================
-# 📱 DokterHP Panic-Full Reader (iPhone)
-# v1.0 by IDT
+# 📱 IDT Panic-Full Reader (iPhone)
+# v1.0 by JENSKYYY
 # =======================================
 
 import streamlit as st
@@ -193,9 +193,9 @@ def generate_checklist(ctx):
 # ======================
 # Streamlit UI 🎨
 # ======================
-st.set_page_config(page_title="DokterHP Panic-Full Reader", page_icon="📱", layout="wide")
+st.set_page_config(page_title="IDT Panic-Full Reader", page_icon="📱", layout="wide")
 
-st.title("📱 DokterHP v1 by IDT")
+st.title("📱 IDT Panic Full Reader v1 by IDT")
 st.subheader("Panic-Full Log Analyzer (iPhone)")
 
 uploaded_file = st.file_uploader("Unggah file Panic-Full (.txt / .ips / .log)", type=["txt", "ips", "log"])
@@ -220,5 +220,6 @@ if uploaded_file:
     st.dataframe(df, use_container_width=True)
 
 st.markdown("---")
-st.caption("© 2025 DokterHP v1 by IDT | Interested in collaboration 👉 @maxxjen1 on Instagram")
+st.caption("© 2025 Semua di develop sendiri tidak dengan team. Tools bebas untuk digunakkan dan Gratis | Interested in collaboration 👉 @maxxjen1 on Instagram")
+
 
