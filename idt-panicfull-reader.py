@@ -1,14 +1,42 @@
-# =======================================
-# 📱 IDT Panic-Full Reader (iPhone)
-# v1.0 by JENSKYYY
-# =======================================
-
 import streamlit as st
 import re
-from datetime import datetime
-import pandas as pd
+import datetime
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
-# ======================
+# =====================
+# Database iPhone Mapping
+# =====================
+IPHONE_MAP = {
+    "iPhone7,2": "iPhone 6",
+    "iPhone7,1": "iPhone 6 Plus",
+    "iPhone8,1": "iPhone 6s",
+    "iPhone8,2": "iPhone 6s Plus",
+    "iPhone8,4": "iPhone SE (1st gen)",
+    "iPhone9,1": "iPhone 7", "iPhone9,3": "iPhone 7",
+    "iPhone9,2": "iPhone 7 Plus", "iPhone9,4": "iPhone 7 Plus",
+    "iPhone10,1": "iPhone 8", "iPhone10,4": "iPhone 8",
+    "iPhone10,2": "iPhone 8 Plus", "iPhone10,5": "iPhone 8 Plus",
+    "iPhone10,3": "iPhone X (China)", "iPhone10,6": "iPhone X (Global)",
+    "iPhone11,2": "iPhone XS", "iPhone11,4": "iPhone XS Max",
+    "iPhone11,6": "iPhone XS Max (China)", "iPhone11,8": "iPhone XR",
+    "iPhone12,1": "iPhone 11", "iPhone12,3": "iPhone 11 Pro",
+    "iPhone12,5": "iPhone 11 Pro Max", "iPhone12,8": "iPhone SE (2nd gen)",
+    "iPhone13,1": "iPhone 12 mini", "iPhone13,2": "iPhone 12",
+    "iPhone13,3": "iPhone 12 Pro", "iPhone13,4": "iPhone 12 Pro Max",
+    "iPhone14,4": "iPhone 13 mini", "iPhone14,5": "iPhone 13",
+    "iPhone14,2": "iPhone 13 Pro", "iPhone14,3": "iPhone 13 Pro Max",
+    "iPhone14,6": "iPhone SE (3rd gen)", "iPhone14,7": "iPhone 14",
+    "iPhone14,8": "iPhone 14 Plus", "iPhone15,2": "iPhone 14 Pro",
+    "iPhone15,3": "iPhone 14 Pro Max", "iPhone15,4": "iPhone 15",
+    "iPhone15,5": "iPhone 15 Plus", "iPhone16,1": "iPhone 15 Pro",
+    "iPhone16,2": "iPhone 15 Pro Max", "iPhone17,1": "iPhone 16 Pro",
+    "iPhone17,2": "iPhone 16 Pro Max", "iPhone17,3": "iPhone 16",
+    "iPhone17,4": "iPhone 16 Plus",
+}
+
+# =====================
+# Database Panic Full Error (contoh singkat, bisa diperluas)
 # Database Panic-Full 📚
 # ======================
 PANIC_DB = {
@@ -136,90 +164,91 @@ PANIC_DB = {
     }
 }
 
-# ======================
-# Regex Extractor 🔍
-# ======================
-RE_PATTERNS = {
-    "device": re.compile(r'product:\s*([^\s,;]+)', re.I),
-    "ios_version": re.compile(r'iOS Version:\s*([^\n\r]+)|OS Version:\s*([^\n\r]+)', re.I),
-    "panic_string": re.compile(r'panicString:\s*(.+)', re.I),
-    "missing_sensors": re.compile(r'Missing sensor\(s\):\s*([^\n\r]+)', re.I),
-    "userspace_watchdog": re.compile(r'userspace watchdog timeout:\s*(.+)', re.I),
-}
+# =====================
+# Fungsi parsing log
+# =====================
+def parse_panic_log(log_text):
+    results = {}
 
-def extract_all(text):
-    out = {}
-    for k, pat in RE_PATTERNS.items():
-        m = pat.search(text)
-        if m:
-            groups = [g for g in m.groups() if g]
-            out[k] = groups[0].strip() if groups else m.group(0).strip()
-
-    ms = re.findall(r'Missing sensor\(s\):\s*([^\n\r]+)', text, re.I)
-    if ms:
-        sensors = []
-        for s in ms:
-            sensors += re.split(r'[,\s]+', s.strip())
-        out['missing_sensors_all'] = list(dict.fromkeys([x for x in sensors if x]))
-    out['contains_thermalmonitord'] = bool(re.search(r'thermalmonitord', text, re.I))
-    return out
-
-def generate_checklist(ctx):
-    sensors = [s.lower() for s in ctx.get('missing_sensors_all', [])]
-    checks, notes = [], []
-
-    if "mic2" in sensors:
-        data = PANIC_DB["mic2"]
-        checks, notes = data["checklist"], data["penyebab_umum"]
-
-    elif any("batt" in s or "ntc" in s for s in sensors):
-        data = PANIC_DB["battery_ntc"]
-        checks, notes = data["checklist"], data["penyebab_umum"]
-
-    elif ctx.get("contains_thermalmonitord"):
-        data = PANIC_DB["thermalmonitord"]
-        checks, notes = data["checklist"], data["penyebab_umum"]
-
-    elif "userspace_watchdog" in ctx:
-        data = PANIC_DB["userspace_watchdog"]
-        checks, notes = data["checklist"], data["penyebab_umum"]
-
+    # Cari tipe iPhone
+    product_match = re.search(r"iPhone\d+,\d+", log_text)
+    if product_match:
+        product_code = product_match.group(0)
+        results["Model"] = IPHONE_MAP.get(product_code, f"Tidak dikenal ({product_code})")
     else:
-        data = PANIC_DB["default"]
-        checks, notes = data["checklist"], data["penyebab_umum"]
+        results["Model"] = "Tidak ditemukan"
 
-    return data["kategori"], checks, notes, data["keterangan"]
+    # Cari error utama
+    found_errors = []
+    for key, explanation in PANIC_ERROR_DB.items():
+        if key.lower() in log_text.lower():
+            found_errors.append(f"{key.upper()} → {explanation}")
+    results["Diagnosis"] = found_errors if found_errors else ["Tidak ada error spesifik ditemukan"]
 
-# ======================
-# Streamlit UI 🎨
-# ======================
-st.set_page_config(page_title="IDT Panic-Full Reader", page_icon="📱", layout="wide")
+    # Tambahkan kemungkinan penyebab umum
+    results["Kemungkinan"] = [
+        "Panic full bisa terjadi karena: kena air, terbanting, solderan retak, atau IC rusak."
+    ]
 
-st.title("📱 Panic Full Reader by IDT")
-st.subheader("Panic-Full Log Analyzer (iPhone 5S - 14 Pro Max)")
+    return results
 
-uploaded_file = st.file_uploader("Unggah file Panic-Full anda  (.txt / .ips / .log)", type=["txt", "ips", "log"])
+# =====================
+# Fungsi buat PDF report
+# =====================
+def build_report(model, diagnosis, kemungkinan, raw_text):
+    filename = "panic_report.pdf"
+    styles = getSampleStyleSheet()
+    doc = SimpleDocTemplate(filename)
+    story = []
+
+    story.append(Paragraph("📱 Laporan Analisa Panic Full", styles["Title"]))
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph(f"Model iPhone: {model}", styles["Normal"]))
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph("🔎 Diagnosis:", styles["Heading2"]))
+    for d in diagnosis:
+        story.append(Paragraph(f"- {d}", styles["Normal"]))
+
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("💡 Kemungkinan Penyebab:", styles["Heading2"]))
+    for k in kemungkinan:
+        story.append(Paragraph(f"- {k}", styles["Normal"]))
+
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("📝 Log Asli:", styles["Heading2"]))
+    story.append(Paragraph(f"<pre>{raw_text[:2000]}</pre>", styles["Code"]))  # biar ga terlalu panjang
+
+    doc.build(story)
+    return filename
+
+# =====================
+# Streamlit App
+# =====================
+st.title("📱 iPhone Panic Full Reader")
+st.write("Upload log panic-full untuk analisa otomatis.")
+
+uploaded_file = st.file_uploader("Upload file panic-full", type=["txt", "log"])
 
 if uploaded_file:
-    text = uploaded_file.read().decode("utf-8", errors="ignore")
-    ctx = extract_all(text)
-    kategori, checklist, notes, keterangan = generate_checklist(ctx)
+    log_text = uploaded_file.read().decode("utf-8", errors="ignore")
 
-    st.markdown(f"### 📌 Hasil Analisa")
-    st.write(f"**Device:** {ctx.get('device', 'Tidak diketahui')}")
-    st.write(f"**iOS:** {ctx.get('ios_version', 'Tidak diketahui')}")
-    st.write(f"**Kategori:** {kategori}")
-    st.write(f"**Catatan:** {keterangan}")
+    results = parse_panic_log(log_text)
 
-    st.markdown("#### ⚡ Penyebab Umum")
-    for n in notes:
-        st.write(f"- {n}")
+    st.subheader("📌 Hasil Analisa")
+    st.write(f"**Model iPhone**: {results['Model']}")
 
-    st.markdown("#### 🛠 Checklist Perbaikan")
-    df = pd.DataFrame(checklist)
-    st.dataframe(df, use_container_width=True)
+    st.write("**Diagnosis:**")
+    for d in results["Diagnosis"]:
+        st.markdown(f"- {d}")
 
-st.markdown("---")
-st.caption("© 2025 Semua di develop sendiri tidak dengan team. Tools bebas untuk digunakkan dan Gratis | Interested in collaboration 👉 @maxxjen1 on Instagram")
+    st.write("**Kemungkinan Penyebab Umum:**")
+    for k in results["Kemungkinan"]:
+        st.markdown(f"- {k}")
 
-
+    # Tombol export PDF
+    if st.button("📤 Export ke PDF"):
+        pdf_file = build_report(results["Model"], results["Diagnosis"], results["Kemungkinan"], log_text)
+        with open(pdf_file, "rb") as f:
+            st.download_button("Download Report PDF", f, file_name="panic_report.pdf")
