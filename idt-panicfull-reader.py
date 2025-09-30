@@ -8,9 +8,8 @@ import re
 from datetime import datetime
 import pandas as pd
 
-# =====================
-# Database iPhone Mapping
-
+# ======================
+# Database Panic-Full 📚
 # ======================
 PANIC_DB = {
     "mic2": {
@@ -138,138 +137,6 @@ PANIC_DB = {
 }
 
 # ======================
-# =====================
-# Database iPhone Mapping
-# =====================
-IPHONE_MAP = {
-    "iPhone7,2": "iPhone 6",
-    "iPhone7,1": "iPhone 6 Plus",
-    "iPhone8,1": "iPhone 6s",
-    "iPhone8,2": "iPhone 6s Plus",
-    "iPhone8,4": "iPhone SE (1st gen)",
-    "iPhone9,1": "iPhone 7", "iPhone9,3": "iPhone 7",
-    "iPhone9,2": "iPhone 7 Plus", "iPhone9,4": "iPhone 7 Plus",
-    "iPhone10,1": "iPhone 8", "iPhone10,4": "iPhone 8",
-    "iPhone10,2": "iPhone 8 Plus", "iPhone10,5": "iPhone 8 Plus",
-    "iPhone10,3": "iPhone X (China)", "iPhone10,6": "iPhone X (Global)",
-    "iPhone11,2": "iPhone XS", "iPhone11,4": "iPhone XS Max",
-    "iPhone11,6": "iPhone XS Max (China)", "iPhone11,8": "iPhone XR",
-    "iPhone12,1": "iPhone 11", "iPhone12,3": "iPhone 11 Pro",
-    "iPhone12,5": "iPhone 11 Pro Max", "iPhone12,8": "iPhone SE (2nd gen)",
-    "iPhone13,1": "iPhone 12 mini", "iPhone13,2": "iPhone 12",
-    "iPhone13,3": "iPhone 12 Pro", "iPhone13,4": "iPhone 12 Pro Max",
-    "iPhone14,4": "iPhone 13 mini", "iPhone14,5": "iPhone 13",
-    "iPhone14,2": "iPhone 13 Pro", "iPhone14,3": "iPhone 13 Pro Max",
-    "iPhone14,6": "iPhone SE (3rd gen)", "iPhone14,7": "iPhone 14",
-    "iPhone14,8": "iPhone 14 Plus", "iPhone15,2": "iPhone 14 Pro",
-    "iPhone15,3": "iPhone 14 Pro Max", "iPhone15,4": "iPhone 15",
-    "iPhone15,5": "iPhone 15 Plus", "iPhone16,1": "iPhone 15 Pro",
-    "iPhone16,2": "iPhone 15 Pro Max", "iPhone17,1": "iPhone 16 Pro",
-    "iPhone17,2": "iPhone 16 Pro Max", "iPhone17,3": "iPhone 16",
-    "iPhone17,4": "iPhone 16 Plus",
-}
-# Mapping board-code ke iPhone model
-BOARD_MAP = {
-    # iPhone 6 series
-    "N61AP": "iPhone 6",
-    "N56AP": "iPhone 6 Plus",
-
-    # iPhone 6s series
-    "N71AP": "iPhone 6s",
-    "N66AP": "iPhone 6s Plus",
-
-    # iPhone SE (1st Gen)
-    "N69AP": "iPhone SE (1st Gen)",
-
-    # iPhone 7 series
-    "D10AP": "iPhone 7",
-    "D11AP": "iPhone 7 Plus",
-
-    # iPhone 8 series
-    "D20AP": "iPhone 8",
-    "D21AP": "iPhone 8 Plus",
-
-    # iPhone X
-    "D22AP": "iPhone X",
-
-    # iPhone XS / XS Max / XR
-    "D321AP": "iPhone XS",
-    "D331pAP": "iPhone XS Max",
-    "N841AP": "iPhone XR",
-
-    # iPhone 11 series
-    "D421AP": "iPhone 11 Pro",
-    "D431AP": "iPhone 11 Pro Max",
-    "N104AP": "iPhone 11",
-
-    # iPhone SE (2nd Gen)
-    "D79AP": "iPhone SE (2nd Gen)",
-
-    # iPhone 12 series
-    "D52GAP": "iPhone 12",
-    "D53GAP": "iPhone 12 mini",
-    "D54PAP": "iPhone 12 Pro",
-    "D55PAP": "iPhone 12 Pro Max",
-
-    # iPhone 13 series
-    "D16AP": "iPhone 13 mini",
-    "D17AP": "iPhone 13",
-    "D18AP": "iPhone 13 Pro",
-    "D19AP": "iPhone 13 Pro Max",
-
-    # iPhone SE (3rd Gen)
-    "D49AP": "iPhone SE (3rd Gen)",
-
-    # iPhone 14 series
-    "D27AP": "iPhone 14",
-    "D28AP": "iPhone 14 Plus",
-    "D29AP": "iPhone 14 Pro",
-    "D30AP": "iPhone 14 Pro Max",
-
-    # iPhone 15 series
-    "D83AP": "iPhone 15",
-    "D84AP": "iPhone 15 Plus",
-    "D85AP": "iPhone 15 Pro",
-    "D86AP": "iPhone 15 Pro Max",
-
-    # iPhone 16 series (2024)
-    "D47AP": "iPhone 16",
-    "D48AP": "iPhone 16 Plus",
-    "D49AP": "iPhone 16 Pro",
-    "D50AP": "iPhone 16 Pro Max",
-}
-
-def extract_all(text):
-    out = {}
-    for k, pat in RE_PATTERNS.items():
-        m = pat.search(text)
-        if m:
-            groups = [g for g in m.groups() if g]
-            out[k] = groups[0].strip() if groups else m.group(0).strip()
-prod_code = out.get("device", "")
-if prod_code in BOARD_MAP:
-    out["iphone_model"] = BOARD_MAP[prod_code]
-elif re.search(r"iPhone\d+,\d+", text):
-    code = re.search(r"(iPhone\d+,\d+)", text).group(1)
-    out["iphone_model"] = IPHONE_MAP.get(code, f"Unknown ({code})")
-else:
-    out["iphone_model"] = f"Unknown ({prod_code})" if prod_code else "Unknown"
-
-    # --- Cari product: iPhoneXX,YY ---
-    
-    # --- Missing sensors ---
-    ms = re.findall(r'Missing sensor\(s\):\s*([^\n\r]+)', text, re.I)
-    if ms:
-        sensors = []
-        for s in ms:
-            sensors += re.split(r'[,\s]+', s.strip())
-        out['missing_sensors_all'] = list(dict.fromkeys([x for x in sensors if x]))
-
-    out['contains_thermalmonitord'] = bool(re.search(r'thermalmonitord', text, re.I))
-    
-
-    return out
-
 # Regex Extractor 🔍
 # ======================
 RE_PATTERNS = {
@@ -280,7 +147,22 @@ RE_PATTERNS = {
     "userspace_watchdog": re.compile(r'userspace watchdog timeout:\s*(.+)', re.I),
 }
 
+def extract_all(text):
+    out = {}
+    for k, pat in RE_PATTERNS.items():
+        m = pat.search(text)
+        if m:
+            groups = [g for g in m.groups() if g]
+            out[k] = groups[0].strip() if groups else m.group(0).strip()
 
+    ms = re.findall(r'Missing sensor\(s\):\s*([^\n\r]+)', text, re.I)
+    if ms:
+        sensors = []
+        for s in ms:
+            sensors += re.split(r'[,\s]+', s.strip())
+        out['missing_sensors_all'] = list(dict.fromkeys([x for x in sensors if x]))
+    out['contains_thermalmonitord'] = bool(re.search(r'thermalmonitord', text, re.I))
+    return out
 
 def generate_checklist(ctx):
     sensors = [s.lower() for s in ctx.get('missing_sensors_all', [])]
@@ -339,8 +221,4 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("© 2025 Semua di develop sendiri tidak dengan team. Tools bebas untuk digunakkan dan Gratis | Interested in collaboration 👉 @maxxjen1 on Instagram")
-
-
-
-
 
