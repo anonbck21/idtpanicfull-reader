@@ -8,39 +8,9 @@ import re
 from datetime import datetime
 import pandas as pd
 
-# ======================
 # =====================
 # Database iPhone Mapping
-# =====================
-IPHONE_MAP = {
-    "iPhone7,2": "iPhone 6",
-    "iPhone7,1": "iPhone 6 Plus",
-    "iPhone8,1": "iPhone 6s",
-    "iPhone8,2": "iPhone 6s Plus",
-    "iPhone8,4": "iPhone SE (1st gen)",
-    "iPhone9,1": "iPhone 7", "iPhone9,3": "iPhone 7",
-    "iPhone9,2": "iPhone 7 Plus", "iPhone9,4": "iPhone 7 Plus",
-    "iPhone10,1": "iPhone 8", "iPhone10,4": "iPhone 8",
-    "iPhone10,2": "iPhone 8 Plus", "iPhone10,5": "iPhone 8 Plus",
-    "iPhone10,3": "iPhone X (China)", "iPhone10,6": "iPhone X (Global)",
-    "iPhone11,2": "iPhone XS", "iPhone11,4": "iPhone XS Max",
-    "iPhone11,6": "iPhone XS Max (China)", "iPhone11,8": "iPhone XR",
-    "iPhone12,1": "iPhone 11", "iPhone12,3": "iPhone 11 Pro",
-    "iPhone12,5": "iPhone 11 Pro Max", "iPhone12,8": "iPhone SE (2nd gen)",
-    "iPhone13,1": "iPhone 12 mini", "iPhone13,2": "iPhone 12",
-    "iPhone13,3": "iPhone 12 Pro", "iPhone13,4": "iPhone 12 Pro Max",
-    "iPhone14,4": "iPhone 13 mini", "iPhone14,5": "iPhone 13",
-    "iPhone14,2": "iPhone 13 Pro", "iPhone14,3": "iPhone 13 Pro Max",
-    "iPhone14,6": "iPhone SE (3rd gen)", "iPhone14,7": "iPhone 14",
-    "iPhone14,8": "iPhone 14 Plus", "iPhone15,2": "iPhone 14 Pro",
-    "iPhone15,3": "iPhone 14 Pro Max", "iPhone15,4": "iPhone 15",
-    "iPhone15,5": "iPhone 15 Plus", "iPhone16,1": "iPhone 15 Pro",
-    "iPhone16,2": "iPhone 15 Pro Max", "iPhone17,1": "iPhone 16 Pro",
-    "iPhone17,2": "iPhone 16 Pro Max", "iPhone17,3": "iPhone 16",
-    "iPhone17,4": "iPhone 16 Plus",
-}
 
-# Database Panic-Full 📚
 # ======================
 PANIC_DB = {
     "mic2": {
@@ -168,14 +138,35 @@ PANIC_DB = {
 }
 
 # ======================
-# Regex Extractor 🔍
-# ======================
-RE_PATTERNS = {
-    "device": re.compile(r'product:\s*([^\s,;]+)', re.I),
-    "ios_version": re.compile(r'iOS Version:\s*([^\n\r]+)|OS Version:\s*([^\n\r]+)', re.I),
-    "panic_string": re.compile(r'panicString:\s*(.+)', re.I),
-    "missing_sensors": re.compile(r'Missing sensor\(s\):\s*([^\n\r]+)', re.I),
-    "userspace_watchdog": re.compile(r'userspace watchdog timeout:\s*(.+)', re.I),
+# =====================
+# Database iPhone Mapping
+# =====================
+IPHONE_MAP = {
+    "iPhone7,2": "iPhone 6",
+    "iPhone7,1": "iPhone 6 Plus",
+    "iPhone8,1": "iPhone 6s",
+    "iPhone8,2": "iPhone 6s Plus",
+    "iPhone8,4": "iPhone SE (1st gen)",
+    "iPhone9,1": "iPhone 7", "iPhone9,3": "iPhone 7",
+    "iPhone9,2": "iPhone 7 Plus", "iPhone9,4": "iPhone 7 Plus",
+    "iPhone10,1": "iPhone 8", "iPhone10,4": "iPhone 8",
+    "iPhone10,2": "iPhone 8 Plus", "iPhone10,5": "iPhone 8 Plus",
+    "iPhone10,3": "iPhone X (China)", "iPhone10,6": "iPhone X (Global)",
+    "iPhone11,2": "iPhone XS", "iPhone11,4": "iPhone XS Max",
+    "iPhone11,6": "iPhone XS Max (China)", "iPhone11,8": "iPhone XR",
+    "iPhone12,1": "iPhone 11", "iPhone12,3": "iPhone 11 Pro",
+    "iPhone12,5": "iPhone 11 Pro Max", "iPhone12,8": "iPhone SE (2nd gen)",
+    "iPhone13,1": "iPhone 12 mini", "iPhone13,2": "iPhone 12",
+    "iPhone13,3": "iPhone 12 Pro", "iPhone13,4": "iPhone 12 Pro Max",
+    "iPhone14,4": "iPhone 13 mini", "iPhone14,5": "iPhone 13",
+    "iPhone14,2": "iPhone 13 Pro", "iPhone14,3": "iPhone 13 Pro Max",
+    "iPhone14,6": "iPhone SE (3rd gen)", "iPhone14,7": "iPhone 14",
+    "iPhone14,8": "iPhone 14 Plus", "iPhone15,2": "iPhone 14 Pro",
+    "iPhone15,3": "iPhone 14 Pro Max", "iPhone15,4": "iPhone 15",
+    "iPhone15,5": "iPhone 15 Plus", "iPhone16,1": "iPhone 15 Pro",
+    "iPhone16,2": "iPhone 15 Pro Max", "iPhone17,1": "iPhone 16 Pro",
+    "iPhone17,2": "iPhone 16 Pro Max", "iPhone17,3": "iPhone 16",
+    "iPhone17,4": "iPhone 16 Plus",
 }
 
 def extract_all(text):
@@ -186,20 +177,41 @@ def extract_all(text):
             groups = [g for g in m.groups() if g]
             out[k] = groups[0].strip() if groups else m.group(0).strip()
 
-    # Tambahan: deteksi iPhone model
-    prod = re.search(r"iPhone\d+,\d+", text)
+    # --- Cari product: iPhoneXX,YY ---
+    prod = re.search(r"(iPhone\d+,\d+)", text)
     if prod:
-        code = prod.group(0)
+        code = prod.group(1)
         out["iphone_model"] = IPHONE_MAP.get(code, f"Unknown ({code})")
+    else:
+        # --- Kalau product pakai kode board (D331pAP dll) ---
+        prod2 = out.get("device", "")
+        if prod2 in IPHONE_MAP:
+            out["iphone_model"] = IPHONE_MAP[prod2]
+        else:
+            out["iphone_model"] = prod2 if prod2 else "Unknown"
 
+    # --- Missing sensors ---
     ms = re.findall(r'Missing sensor\(s\):\s*([^\n\r]+)', text, re.I)
     if ms:
         sensors = []
         for s in ms:
             sensors += re.split(r'[,\s]+', s.strip())
         out['missing_sensors_all'] = list(dict.fromkeys([x for x in sensors if x]))
+
     out['contains_thermalmonitord'] = bool(re.search(r'thermalmonitord', text, re.I))
     return out
+
+# Regex Extractor 🔍
+# ======================
+RE_PATTERNS = {
+    "device": re.compile(r'product:\s*([^\s,;]+)', re.I),
+    "ios_version": re.compile(r'iOS Version:\s*([^\n\r]+)|OS Version:\s*([^\n\r]+)', re.I),
+    "panic_string": re.compile(r'panicString:\s*(.+)', re.I),
+    "missing_sensors": re.compile(r'Missing sensor\(s\):\s*([^\n\r]+)', re.I),
+    "userspace_watchdog": re.compile(r'userspace watchdog timeout:\s*(.+)', re.I),
+}
+
+
 
 def generate_checklist(ctx):
     sensors = [s.lower() for s in ctx.get('missing_sensors_all', [])]
@@ -258,4 +270,5 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("© 2025 Semua di develop sendiri tidak dengan team. Tools bebas untuk digunakkan dan Gratis | Interested in collaboration 👉 @maxxjen1 on Instagram")
+
 
