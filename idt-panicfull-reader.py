@@ -168,6 +168,76 @@ IPHONE_MAP = {
     "iPhone17,2": "iPhone 16 Pro Max", "iPhone17,3": "iPhone 16",
     "iPhone17,4": "iPhone 16 Plus",
 }
+# Mapping board-code ke iPhone model
+BOARD_MAP = {
+    # iPhone 6 series
+    "N61AP": "iPhone 6",
+    "N56AP": "iPhone 6 Plus",
+
+    # iPhone 6s series
+    "N71AP": "iPhone 6s",
+    "N66AP": "iPhone 6s Plus",
+
+    # iPhone SE (1st Gen)
+    "N69AP": "iPhone SE (1st Gen)",
+
+    # iPhone 7 series
+    "D10AP": "iPhone 7",
+    "D11AP": "iPhone 7 Plus",
+
+    # iPhone 8 series
+    "D20AP": "iPhone 8",
+    "D21AP": "iPhone 8 Plus",
+
+    # iPhone X
+    "D22AP": "iPhone X",
+
+    # iPhone XS / XS Max / XR
+    "D321AP": "iPhone XS",
+    "D331pAP": "iPhone XS Max",
+    "N841AP": "iPhone XR",
+
+    # iPhone 11 series
+    "D421AP": "iPhone 11 Pro",
+    "D431AP": "iPhone 11 Pro Max",
+    "N104AP": "iPhone 11",
+
+    # iPhone SE (2nd Gen)
+    "D79AP": "iPhone SE (2nd Gen)",
+
+    # iPhone 12 series
+    "D52GAP": "iPhone 12",
+    "D53GAP": "iPhone 12 mini",
+    "D54PAP": "iPhone 12 Pro",
+    "D55PAP": "iPhone 12 Pro Max",
+
+    # iPhone 13 series
+    "D16AP": "iPhone 13 mini",
+    "D17AP": "iPhone 13",
+    "D18AP": "iPhone 13 Pro",
+    "D19AP": "iPhone 13 Pro Max",
+
+    # iPhone SE (3rd Gen)
+    "D49AP": "iPhone SE (3rd Gen)",
+
+    # iPhone 14 series
+    "D27AP": "iPhone 14",
+    "D28AP": "iPhone 14 Plus",
+    "D29AP": "iPhone 14 Pro",
+    "D30AP": "iPhone 14 Pro Max",
+
+    # iPhone 15 series
+    "D83AP": "iPhone 15",
+    "D84AP": "iPhone 15 Plus",
+    "D85AP": "iPhone 15 Pro",
+    "D86AP": "iPhone 15 Pro Max",
+
+    # iPhone 16 series (2024)
+    "D47AP": "iPhone 16",
+    "D48AP": "iPhone 16 Plus",
+    "D49AP": "iPhone 16 Pro",
+    "D50AP": "iPhone 16 Pro Max",
+}
 
 def extract_all(text):
     out = {}
@@ -176,6 +246,14 @@ def extract_all(text):
         if m:
             groups = [g for g in m.groups() if g]
             out[k] = groups[0].strip() if groups else m.group(0).strip()
+prod_code = out.get("device", "")
+if prod_code in BOARD_MAP:
+    out["iphone_model"] = BOARD_MAP[prod_code]
+elif re.search(r"iPhone\d+,\d+", text):
+    code = re.search(r"(iPhone\d+,\d+)", text).group(1)
+    out["iphone_model"] = IPHONE_MAP.get(code, f"Unknown ({code})")
+else:
+    out["iphone_model"] = f"Unknown ({prod_code})" if prod_code else "Unknown"
 
     # --- Cari product: iPhoneXX,YY ---
     prod = re.search(r"(iPhone\d+,\d+)", text)
@@ -270,5 +348,6 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("© 2025 Semua di develop sendiri tidak dengan team. Tools bebas untuk digunakkan dan Gratis | Interested in collaboration 👉 @maxxjen1 on Instagram")
+
 
 
